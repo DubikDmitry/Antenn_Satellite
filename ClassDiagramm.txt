@@ -1,0 +1,148 @@
+classDiagram
+    class ErrorCode {
+        GENERATION_FAILED
+        QUEUE_ERROR
+        SOLVER_FAILED
+        FILE_ERROR
+        THREAD_POOL_ERROR
+    }
+
+    class SimulationError {
+        -string message
+        -ErrorCode code
+        +SimulationError(string, ErrorCode)
+        +string what()
+        +ErrorCode getCode()
+    }
+
+    class Config {
+        -int number_of_flights
+        -int size_data
+        -int num_antennas
+        -int num_solver_threads
+        +Config(int,int,int,int)
+        +int getNumberOfFlights()
+        +int getSizeData()
+        +int getNumAntennas()
+        +int getNumSolverThreads()
+    }
+
+    class RowData {
+        -vector~double~ data
+        +RowData()
+        +RowData(vector~double~)
+        +vector~double~ getValues()
+        +bool isEmpty()
+        +double getCoeff(int)
+        +double getRHS()
+        +int size()
+    }
+
+    class ConcurrentQueue {
+        -queue~RowData~ container
+        -mutex mtx
+        -condition_variable cv
+        +push(RowData)
+        +RowData pop()
+    }
+
+    class DataGenerator {
+        -int sizeData
+        -int numAntennas
+        -mt19937 rng
+        -uniform_real_distribution~double~ dist
+        +DataGenerator(int,int)
+        +void setSeed(unsigned int)
+        +vector~RowData~ generateFlight()
+    }
+
+    class AntennaWorker {
+        -ConcurrentQueue* queue
+        -Config* cfg
+        -DataGenerator* generator
+        +AntennaWorker(ConcurrentQueue*, Config*, DataGenerator*)
+        +void run()
+    }
+
+    class ReceivingAntenna {
+        -vector~RowData~ allRows
+        -ofstream file
+        -ThreadPool pool
+        +ReceivingAntenna(int, string)
+        +~ReceivingAntenna()
+        +void receiveRow(RowData)
+        +void finishAndSolve()
+        +void solveGivenRows(const vector~RowData~&)
+        -void solveInternal()
+        -void printMatrix()
+    }
+
+    class ThreadPool {
+        -vector~thread~ workers
+        -queue~unique_ptr~Task~~ tasks
+        -mutex queueMutex
+        -condition_variable cv
+        -condition_variable waitCv
+        -bool stop
+        -int activeTasks
+        +ThreadPool(int)
+        +~ThreadPool()
+        +void add_task(unique_ptr~Task~)
+        +void wait()
+        -void workerLoop()
+    }
+
+    class Task {
+        +virtual ~Task()
+        +virtual void execute() = 0
+    }
+
+    class JacobiTask {
+        -vector~vector~double~~& A
+        -vector~double~& b
+        -vector~double~& x
+        -vector~double~& x_new
+        -int idx
+        +JacobiTask(..., int)
+        +void execute()
+    }
+
+    class SatelliteWorker {
+        -ConcurrentQueue* queue
+        -ReceivingAntenna* antenna
+        +SatelliteWorker(ConcurrentQueue*, ReceivingAntenna*)
+        +void run()
+    }
+
+    class MainController {
+        -Config config
+        -ConcurrentQueue queue
+        -DataGenerator generator
+        -ReceivingAntenna antenna
+        -AntennaWorker antennaWorker
+        -SatelliteWorker satelliteWorker
+        +MainController(Config)
+        +void runSimulation()
+    }
+
+    Task <|-- JacobiTask
+    ThreadPool --> Task 
+    ReceivingAntenna --> ThreadPool 
+    ReceivingAntenna --> JacobiTask 
+    SatelliteWorker --> ReceivingAntenna
+    AntennaWorker --> ConcurrentQueue
+    SatelliteWorker --> ConcurrentQueue
+    MainController --> Config
+    MainController --> ConcurrentQueue
+    MainController --> DataGenerator
+    MainController --> ReceivingAntenna
+    MainController --> AntennaWorker
+    MainController --> SatelliteWorker
+
+    SimulationError --> ErrorCode
+    AntennaWorker ..> SimulationError 
+    DataGenerator ..> SimulationError 
+    ConcurrentQueue ..> SimulationError 
+    ReceivingAntenna ..> SimulationError 
+    ThreadPool ..> SimulationError 
+    MainController ..> SimulationError 
