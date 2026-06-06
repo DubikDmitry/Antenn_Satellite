@@ -1,6 +1,6 @@
 #include "MainController.h"
 
-MainController::MainController(Config cfg)
+MainController::MainController(const Config& cfg)
     : config(cfg),
       generator(cfg.getSizeData(), cfg.getNumAntennas()),
       antenna(cfg.getNumSolverThreads(), "output.txt"),

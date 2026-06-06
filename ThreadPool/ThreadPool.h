@@ -8,45 +8,45 @@
 #include <mutex>
 #include <condition_variable>
 
-class Task {
+class SolverMethod {
 public:
-    virtual ~Task() {}
+    virtual ~SolverMethod() {}
     virtual void execute() = 0;
 };
 
 class ThreadPool {
 private:
     std::vector<std::thread> workers;
-    std::queue<std::unique_ptr<Task> > tasks;
+    std::queue<std::unique_ptr<SolverMethod> > tasks;
     std::mutex queueMutex;
     std::condition_variable cv;
     std::condition_variable waitCv;
     bool stop;
-    int activeTasks;
+    size_t activeTasks;
 
     void workerLoop();
 
 public:
-    ThreadPool(int numThreads);
+    ThreadPool(size_t numThreads);
     ~ThreadPool();
-    void add_task(std::unique_ptr<Task> task);
+    void add_task(std::unique_ptr<SolverMethod> task);
     void wait();
 };
 
-class JacobiTask : public Task {
+class JacobiMethod : public SolverMethod {
 private:
     std::vector<std::vector<double> >& A;
     std::vector<double>& b;
     std::vector<double>& x;
     std::vector<double>& x_new;
-    int idx;
+    size_t idx;
 
 public:
-    JacobiTask(std::vector<std::vector<double> >& A,
-               std::vector<double>& b,
-               std::vector<double>& x,
-               std::vector<double>& x_new,
-               int idx);
+    JacobiMethod(std::vector<std::vector<double> >& A,
+                 std::vector<double>& b,
+                 std::vector<double>& x,
+                 std::vector<double>& x_new,
+                 size_t idx);
     void execute();
 };
 

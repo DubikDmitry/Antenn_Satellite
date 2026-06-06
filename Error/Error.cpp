@@ -1,6 +1,6 @@
 #include "Error.h"
 
-SimulationError::SimulationError(std::string msg, ErrorCode c) {
+SimulationError::SimulationError(const std::string& msg, ErrorCode c) {
     message = msg;
     code = c;
 }

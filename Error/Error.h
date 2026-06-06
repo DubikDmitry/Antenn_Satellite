@@ -17,7 +17,7 @@ private:
     ErrorCode code;
 
 public:
-    SimulationError(std::string msg, ErrorCode c);
+    SimulationError(const std::string& msg, ErrorCode c);
     std::string what();
     ErrorCode getCode();
 };

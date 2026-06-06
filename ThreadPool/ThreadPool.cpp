@@ -1,11 +1,13 @@
 #include "ThreadPool.h"
 #include "Error.h"
 #include <iostream>
-ThreadPool::ThreadPool(int numThreads) {
+
+ThreadPool::ThreadPool(size_t numThreads) {
     stop = false;
     activeTasks = 0;
-    for (int i = 0; i < numThreads; i++) {
-        workers.push_back(std::thread(&ThreadPool::workerLoop, this));
+    workers.reserve(numThreads);
+    for (size_t i = 0; i < numThreads; ++i) {
+        workers.emplace_back(&ThreadPool::workerLoop, this);
     }
 }
 
@@ -15,39 +17,35 @@ ThreadPool::~ThreadPool() {
         stop = true;
     }
     cv.notify_all();
-    for (int i = 0; i < (int)workers.size(); i++) {
-        if (workers[i].joinable()) {
-            workers[i].join();
-        }
+    for (std::thread& worker : workers) {
+        if (worker.joinable()) worker.join();
     }
 }
 
-void ThreadPool::add_task(std::unique_ptr<Task> task) {
+void ThreadPool::add_task(std::unique_ptr<SolverMethod> task) {
     {
         std::lock_guard<std::mutex> lock(queueMutex);
         if (stop) {
-            throw SimulationError("Попытка добавить задачу в остановленный ThreadPool", THREAD_POOL_ERROR);
+            throw SimulationError("Attempt to add task to stopped ThreadPool", THREAD_POOL_ERROR);
         }
         tasks.push(std::move(task));
-        activeTasks++;
+        ++activeTasks;
     }
     cv.notify_one();
 }
 
 void ThreadPool::wait() {
     std::unique_lock<std::mutex> lock(queueMutex);
-    while (!(tasks.empty() && activeTasks == 0)) {
-        waitCv.wait(lock);
-    }
+    waitCv.wait(lock, [this]() { return tasks.empty() && activeTasks == 0; });
 }
 
 void ThreadPool::workerLoop() {
     bool should_run = true;
     while (should_run) {
-        std::unique_ptr<Task> task;
+        std::unique_ptr<SolverMethod> task;
         {
             std::unique_lock<std::mutex> lock(queueMutex);
-            while (!stop && tasks.empty()) { cv.wait(lock); }
+            cv.wait(lock, [this]() { return stop || !tasks.empty(); });
             if (stop && tasks.empty()) {
                 should_run = false;
             } else {
@@ -58,37 +56,39 @@ void ThreadPool::workerLoop() {
         if (task) {
             try {
                 task->execute();
+            } catch (SimulationError& e) {
+                std::cerr << "Simulation error in solver method: " << e.what() << std::endl;
             } catch (const std::exception& e) {
-                // Логируем ошибку в задаче, но не прерываем поток
-                std::cerr << "Ошибка в задаче: " << e.what() << std::endl;
+                std::cerr << "Standard error in solver method: " << e.what() << std::endl;
             }
             {
                 std::lock_guard<std::mutex> lock(queueMutex);
-                activeTasks--;
-                if (tasks.empty() && activeTasks == 0) { waitCv.notify_all(); }
+                --activeTasks;
+                if (tasks.empty() && activeTasks == 0) {
+                    waitCv.notify_all();
+                }
             }
         }
     }
 }
 
-JacobiTask::JacobiTask(std::vector<std::vector<double> >& A,
-                       std::vector<double>& b,
-                       std::vector<double>& x,
-                       std::vector<double>& x_new,
-                       int idx) : A(A), b(b), x(x), x_new(x_new), idx(idx) {
-}
+JacobiMethod::JacobiMethod(std::vector<std::vector<double> >& A,
+                           std::vector<double>& b,
+                           std::vector<double>& x,
+                           std::vector<double>& x_new,
+                           size_t idx) : A(A), b(b), x(x), x_new(x_new), idx(idx) { }
 
-void JacobiTask::execute() {
+void JacobiMethod::execute() {
     double sum = 0.0;
-    int n = (int)A.size();
-    for (int j = 0; j < n; j++) {
+    size_t n = A.size();
+    for (size_t j = 0; j < n; ++j) {
         if (j != idx) {
             sum += A[idx][j] * x[j];
         }
     }
     double diag = A[idx][idx];
     if (std::abs(diag) < 1e-12) {
-        throw SimulationError("Диагональный элемент слишком близок к нулю", SOLVER_FAILED);
+        throw SimulationError("Diagonal element too close to zero", SOLVER_FAILED);
     }
     x_new[idx] = (b[idx] - sum) / diag;
 }

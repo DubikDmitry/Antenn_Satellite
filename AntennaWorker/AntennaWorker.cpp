@@ -12,19 +12,19 @@ AntennaWorker::AntennaWorker(ConcurrentQueue* queue, Config* cfg, DataGenerator*
 void AntennaWorker::run() {
     try {
         int flights = cfg->getNumberOfFlights();
-        for (int i = 0; i < flights; i++) {
+        for (int i = 0; i < flights; ++i) {
             std::vector<RowData> flightRows = generator->generateFlight();
-            for (int j = 0; j < (int)flightRows.size(); j++) {
+            for (size_t j = 0; j < flightRows.size(); ++j) {
                 queue->push(flightRows[j]);
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         queue->push(RowData());
-    } catch (SimulationError& e) {        
-        std::cerr << "Ошибка в AntennaWorker: " << e.what() << std::endl;
+    } catch (SimulationError& e) {
+        std::cerr << "Error in AntennaWorker: " << e.what() << std::endl;
         throw;
-    } catch (std::exception& e) {          
-        std::cerr << "Неизвестная ошибка в AntennaWorker: " << e.what() << std::endl;
-        throw SimulationError("Неизвестная ошибка", GENERATION_FAILED);
+    } catch (std::exception& e) {
+        std::cerr << "Unknown error in AntennaWorker: " << e.what() << std::endl;
+        throw SimulationError("Unknown error", GENERATION_FAILED);
     }
 }

@@ -1,16 +1,15 @@
 #include "RowData.h"
 
-RowData::RowData() {
-}
+RowData::RowData() { }
 
-RowData::RowData(std::vector<double> values) { data = values; }
+RowData::RowData(const std::vector<double>& values) : data(values) { }
 
-std::vector<double> RowData::getValues() { return data; }
+std::vector<double> RowData::getValues() const { return data; }
 
-bool RowData::isEmpty() { return data.empty(); }
+bool RowData::isEmpty() const { return data.empty(); }
 
-double RowData::getCoeff(int idx) { return data[idx]; }
+double RowData::getCoeff(size_t idx) const { return data[idx]; }
 
-double RowData::getRHS() { return data[data.size() - 1]; }
+double RowData::getRHS() const { return data.back(); }
 
-int RowData::size() { return (int)data.size(); }
+size_t RowData::size() const { return data.size(); }

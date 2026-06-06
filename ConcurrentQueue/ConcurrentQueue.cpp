@@ -1,7 +1,7 @@
 #include "ConcurrentQueue.h"
 #include "Error.h"
 
-void ConcurrentQueue::push(RowData item) {
+void ConcurrentQueue::push(const RowData& item) {
     try {
         {
             std::lock_guard<std::mutex> lock(mtx);
@@ -9,7 +9,7 @@ void ConcurrentQueue::push(RowData item) {
         }
         cv.notify_one();
     } catch (const std::exception& e) {
-        throw SimulationError("Ошибка при push в очередь: " + std::string(e.what()), QUEUE_ERROR);
+        throw SimulationError(std::string("Queue push error: ") + e.what(), QUEUE_ERROR);
     }
 }
 
@@ -23,6 +23,6 @@ RowData ConcurrentQueue::pop() {
         container.pop();
         return item;
     } catch (const std::exception& e) {
-        throw SimulationError("Ошибка при pop из очереди: " + std::string(e.what()), QUEUE_ERROR);
+        throw SimulationError(std::string("Queue pop error: ") + e.what(), QUEUE_ERROR);
     }
 }

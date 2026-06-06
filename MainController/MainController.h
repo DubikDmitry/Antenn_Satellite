@@ -19,7 +19,7 @@ private:
     SatelliteWorker satelliteWorker;
 
 public:
-    MainController(Config cfg);
+    MainController(const Config& cfg);
     void runSimulation();
 };
 

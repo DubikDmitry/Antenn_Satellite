@@ -3,11 +3,11 @@
 #include <iostream>
 #include <cmath>
 
-ReceivingAntenna::ReceivingAntenna(int numThreads, std::string filename) : pool(numThreads) {
+ReceivingAntenna::ReceivingAntenna(int numThreads, const std::string& filename) : pool(numThreads) {
     if (!filename.empty()) {
         file.open(filename.c_str());
         if (!file.is_open()) {
-            throw SimulationError("Не удалось открыть файл " + filename, FILE_ERROR);
+            throw SimulationError(std::string("Failed to open file ") + filename, FILE_ERROR);
         }
     }
 }
@@ -18,28 +18,30 @@ ReceivingAntenna::~ReceivingAntenna() {
     }
 }
 
-void ReceivingAntenna::receiveRow(RowData row) {
+void ReceivingAntenna::receiveRow(const RowData& row) {
     allRows.push_back(row);
-    std::vector<double> values = row.getValues();
-    for (int i = 0; i < (int)values.size(); i++) {
-        file << values[i];
-        if (i != (int)values.size() - 1) file << " ";
+    if (file.is_open()) {
+        std::vector<double> values = row.getValues();
+        for (size_t i = 0; i < values.size(); ++i) {
+            file << values[i];
+            if (i + 1 < values.size()) file << " ";
+        }
+        file << std::endl;
     }
-    file << std::endl;
 }
 
 void ReceivingAntenna::finishAndSolve() {
-    std::cout << "Итоговое СЛАУ:" << std::endl;
+    std::cout << "Final SLAE:" << std::endl;
     printMatrix();
     solveInternal();
 }
 
 void ReceivingAntenna::printMatrix() {
-    for (int i = 0; i < (int)allRows.size(); i++) {
+    for (size_t i = 0; i < allRows.size(); ++i) {
         std::vector<double> values = allRows[i].getValues();
-        for (int j = 0; j < (int)values.size(); j++) {
+        for (size_t j = 0; j < values.size(); ++j) {
             std::cout << values[j];
-            if (j != (int)values.size() - 1) std::cout << " ";
+            if (j + 1 < values.size()) std::cout << " ";
         }
         std::cout << std::endl;
     }
@@ -47,26 +49,36 @@ void ReceivingAntenna::printMatrix() {
 
 void ReceivingAntenna::solveInternal() {
     if (allRows.empty()) {
-        std::cout << "Нет данных для решения." << std::endl;
+        std::cout << "No data to solve." << std::endl;
         return;
     }
-    int n = allRows[0].size();
-    int unknowns = n - 1;
-    int totalRows = (int)allRows.size();
+    size_t n = allRows[0].size();
+    size_t unknowns = n - 1;
+    size_t totalRows = allRows.size();
 
     if (totalRows < unknowns) {
-        std::cout << "Недостаточно уравнений. Нужно хотя бы " << unknowns << ", получено " << totalRows << std::endl;
+        std::cout << "Not enough equations. Need at least " << unknowns << ", got " << totalRows << std::endl;
         return;
     }
 
     std::vector<std::vector<double> > A(unknowns, std::vector<double>(unknowns));
     std::vector<double> b(unknowns);
-    for (int i = 0; i < unknowns; i++) {
+    for (size_t i = 0; i < unknowns; ++i) {
         std::vector<double> values = allRows[i].getValues();
-        for (int j = 0; j < unknowns; j++) {
+        for (size_t j = 0; j < unknowns; ++j) {
             A[i][j] = values[j];
         }
         b[i] = values[unknowns];
+    }
+    
+    allRows.clear();
+    allRows.shrink_to_fit();
+    // Проверка диагональных элементов
+    for (size_t i = 0; i < unknowns; ++i) {
+        if (std::abs(A[i][i]) < 1e-10) {
+            std::cout << "Zero diagonal element at " << i << std::endl;
+            throw SimulationError("Zero diagonal", SOLVER_FAILED);
+        }
     }
 
     int maxIter = 1000;
@@ -74,51 +86,52 @@ void ReceivingAntenna::solveInternal() {
     std::vector<double> x(unknowns, 0.0);
     std::vector<double> x_new(unknowns, 0.0);
     bool converged = false;
-    for (int iter = 0; iter < maxIter && !converged; iter++) {
-        for (int i = 0; i < unknowns; i++) {
+
+    for (int iter = 0; iter < maxIter && !converged; ++iter) {
+        for (size_t i = 0; i < unknowns; ++i) {
             try {
-                std::unique_ptr<Task> task(new JacobiTask(A, b, x, x_new, i));
-                pool.add_task(std::move(task));
+                std::unique_ptr<SolverMethod> method(new JacobiMethod(A, b, x, x_new, i));
+                pool.add_task(std::move(method));
             } catch (SimulationError& e) {
-                std::cerr << "Ошибка добавления задачи: " << e.what() << std::endl;
+                std::cerr << "Error adding task: " << e.what() << std::endl;
                 throw;
             }
         }
         pool.wait();
 
         double maxDiff = 0.0;
-        for (int i = 0; i < unknowns; i++) {
+        for (size_t i = 0; i < unknowns; ++i) {
+            if (std::isnan(x_new[i]) || std::isinf(x_new[i])) {
+                throw SimulationError("NaN in solution", SOLVER_FAILED);
+            }
             double diff = x_new[i] - x[i];
             if (diff < 0) diff = -diff;
             if (diff > maxDiff) maxDiff = diff;
             x[i] = x_new[i];
         }
         if (maxDiff < eps) {
-            std::cout << "Сошлось за " << iter + 1 << " итераций." << std::endl;
+            std::cout << "Converged in " << iter + 1 << " iterations." << std::endl;
             converged = true;
         }
     }
 
-    std::cout << "РЕШЕНИЕ СЛАУ:" << std::endl;
-    for (int i = 0; i < unknowns; i++) {
-        std::cout << "x" << i << " = " << x[i] << std::endl;
-    }
+    // std::cout << "SOLUTION:" << std::endl;
+    // for (size_t i = 0; i < unknowns; ++i) {
+    //     std::cout << "x" << i << " = " << x[i] << std::endl;
+    // }
 }
 
 void ReceivingAntenna::solveGivenRows(const std::vector<RowData>& rows) {
     allRows = rows;
-    
-    // Записываем в файл (если файл открыт)
     if (file.is_open()) {
-        for (int i = 0; i < (int)allRows.size(); i++) {
+        for (size_t i = 0; i < allRows.size(); ++i) {
             std::vector<double> values = allRows[i].getValues();
-            for (int j = 0; j < (int)values.size(); j++) {
+            for (size_t j = 0; j < values.size(); ++j) {
                 file << values[j];
-                if (j != (int)values.size() - 1) file << " ";
+                if (j + 1 < values.size()) file << " ";
             }
             file << std::endl;
         }
     }
-    
     solveInternal();
 }

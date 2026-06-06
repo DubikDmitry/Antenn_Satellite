@@ -10,10 +10,10 @@ private:
 
 public:
     Config(int flights, int dataSize, int antennas, int threads);
-    int getNumberOfFlights();
-    int getSizeData();
-    int getNumAntennas();
-    int getNumSolverThreads();
+    int getNumberOfFlights() const;
+    int getSizeData() const;
+    int getNumAntennas() const;
+    int getNumSolverThreads() const;
 };
 
 #endif

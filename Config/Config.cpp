@@ -7,10 +7,7 @@ Config::Config(int flights, int dataSize, int antennas, int threads) {
     num_solver_threads = threads;
 }
 
-int Config::getNumberOfFlights() { return number_of_flights; }
-
-int Config::getSizeData() { return size_data; }
-
-int Config::getNumAntennas() { return num_antennas; }
-
-int Config::getNumSolverThreads() { return num_solver_threads; }
+int Config::getNumberOfFlights() const { return number_of_flights; }
+int Config::getSizeData() const { return size_data; }
+int Config::getNumAntennas() const { return num_antennas; }
+int Config::getNumSolverThreads() const { return num_solver_threads; }

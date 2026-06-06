@@ -1,5 +1,6 @@
 classDiagram
     class ErrorCode {
+        <<enumeration>>
         GENERATION_FAILED
         QUEUE_ERROR
         SOLVER_FAILED
@@ -33,16 +34,16 @@ classDiagram
         +RowData(vector~double~)
         +vector~double~ getValues()
         +bool isEmpty()
-        +double getCoeff(int)
+        +double getCoeff(size_t)
         +double getRHS()
-        +int size()
+        +size_t size()
     }
 
     class ConcurrentQueue {
         -queue~RowData~ container
         -mutex mtx
         -condition_variable cv
-        +push(RowData)
+        +push(const RowData&)
         +RowData pop()
     }
 
@@ -51,8 +52,10 @@ classDiagram
         -int numAntennas
         -mt19937 rng
         -uniform_real_distribution~double~ dist
+        -size_t globalRowCounter
         +DataGenerator(int,int)
         +void setSeed(unsigned int)
+        +void resetCounter()
         +vector~RowData~ generateFlight()
     }
 
@@ -68,9 +71,9 @@ classDiagram
         -vector~RowData~ allRows
         -ofstream file
         -ThreadPool pool
-        +ReceivingAntenna(int, string)
+        +ReceivingAntenna(int, const string&)
         +~ReceivingAntenna()
-        +void receiveRow(RowData)
+        +void receiveRow(const RowData&)
         +void finishAndSolve()
         +void solveGivenRows(const vector~RowData~&)
         -void solveInternal()
@@ -79,31 +82,32 @@ classDiagram
 
     class ThreadPool {
         -vector~thread~ workers
-        -queue~unique_ptr~Task~~ tasks
+        -queue~unique_ptr~SolverMethod~~ tasks
         -mutex queueMutex
         -condition_variable cv
         -condition_variable waitCv
         -bool stop
-        -int activeTasks
-        +ThreadPool(int)
+        -size_t activeTasks
+        +ThreadPool(size_t)
         +~ThreadPool()
-        +void add_task(unique_ptr~Task~)
+        +void add_task(unique_ptr~SolverMethod~)
         +void wait()
         -void workerLoop()
     }
 
-    class Task {
-        +virtual ~Task()
+    class SolverMethod {
+        <<abstract>>
+        +virtual ~SolverMethod()
         +virtual void execute() = 0
     }
 
-    class JacobiTask {
+    class JacobiMethod {
         -vector~vector~double~~& A
         -vector~double~& b
         -vector~double~& x
         -vector~double~& x_new
-        -int idx
-        +JacobiTask(..., int)
+        -size_t idx
+        +JacobiMethod(..., size_t)
         +void execute()
     }
 
@@ -121,14 +125,14 @@ classDiagram
         -ReceivingAntenna antenna
         -AntennaWorker antennaWorker
         -SatelliteWorker satelliteWorker
-        +MainController(Config)
+        +MainController(const Config&)
         +void runSimulation()
     }
 
-    Task <|-- JacobiTask
-    ThreadPool --> Task 
+    SolverMethod <|-- JacobiMethod
+    ThreadPool --> SolverMethod 
     ReceivingAntenna --> ThreadPool 
-    ReceivingAntenna --> JacobiTask 
+    ReceivingAntenna --> JacobiMethod 
     SatelliteWorker --> ReceivingAntenna
     AntennaWorker --> ConcurrentQueue
     SatelliteWorker --> ConcurrentQueue
@@ -145,4 +149,4 @@ classDiagram
     ConcurrentQueue ..> SimulationError 
     ReceivingAntenna ..> SimulationError 
     ThreadPool ..> SimulationError 
-    MainController ..> SimulationError 
+    MainController ..> SimulationError

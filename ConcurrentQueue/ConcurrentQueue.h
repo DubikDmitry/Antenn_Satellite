@@ -13,7 +13,7 @@ private:
     std::condition_variable cv;
 
 public:
-    void push(RowData item);
+    void push(const RowData& item);
     RowData pop();
 };
 

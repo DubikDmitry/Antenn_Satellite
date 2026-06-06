@@ -14,10 +14,10 @@ int main() {
         MainController controller(cfg);
         controller.runSimulation();
     } catch (SimulationError& e) {
-        std::cerr << "Ошибка: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
         return 1;
     } catch (std::exception& e) {
-        std::cerr << "Неизвестное исключение: " << e.what() << std::endl;
+        std::cerr << "Unknown exception: " << e.what() << std::endl;
         return 2;
     }
 

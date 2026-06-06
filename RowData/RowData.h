@@ -8,12 +8,12 @@ private:
 
 public:
     RowData();
-    RowData(std::vector<double> values);
-    std::vector<double> getValues();
-    bool isEmpty();
-    double getCoeff(int idx);
-    double getRHS();
-    int size();
+    RowData(const std::vector<double>& values);
+    std::vector<double> getValues() const;
+    bool isEmpty() const;
+    double getCoeff(size_t idx) const;
+    double getRHS() const;
+    size_t size() const;
 };
 
 #endif

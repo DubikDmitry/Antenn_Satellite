@@ -17,12 +17,10 @@ private:
     void printMatrix();
 
 public:
-    ReceivingAntenna(int numThreads, std::string filename);
+    ReceivingAntenna(int numThreads, const std::string& filename);
     ~ReceivingAntenna();
-    void receiveRow(RowData row);
+    void receiveRow(const RowData& row);
     void finishAndSolve();
-
-    // Новый метод – решить заранее подготовленные строки (без генерации)
     void solveGivenRows(const std::vector<RowData>& rows);
 };
 
